@@ -1,0 +1,14 @@
+{
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 15
+    }
+  },
+  "crons": [
+    { "path": "/api/_healthcheck", "schedule": "0 */6 * * *" }
+  ]
+}
