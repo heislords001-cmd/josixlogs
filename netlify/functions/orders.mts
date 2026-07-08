@@ -1,37 +1,37 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuth } from './_lib/auth';
-import { getSupabase, toOrder, acquireLock, releaseLock } from './_lib/db';
+import type { Config } from '@netlify/functions';
+import { requireAuth, json } from './_lib/auth';
+import { getSupabase, toOrder, acquireLock, releaseLock, env } from './_lib/db';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const user = await requireAuth(req, res);
-  if (!user) return;
+export default async (req: Request) => {
+  const user = await requireAuth(req);
+  if (user instanceof Response) return user;
   const { userId } = user;
-  const supabase = await getSupabase();
+  const supabase = getSupabase();
 
   if (req.method === 'GET') {
     const { data } = await supabase.from('orders').select('*').eq('user_id', userId).order('date', { ascending: false });
-    return res.status(200).json({ orders: (data ?? []).map(toOrder) });
+    return json({ orders: (data ?? []).map(toOrder) });
   }
 
   if (req.method === 'POST') {
-    const { service, serviceIcon, fivesimCode, countryCode, country, price } = req.body as {
+    const { service, serviceIcon, fivesimCode, countryCode, country, price } = await req.json() as {
       service: string; serviceIcon: string; fivesimCode: string;
       countryCode: string; country: string; price: number;
     };
 
     const { data: existing, error: selErr } = await supabase.from('users').select('*').eq('user_id', userId).limit(1);
-    if (selErr || !existing || !existing.length) return res.status(404).json({ error: 'Profile not found' });
-    if (Number(existing[0].balance) < price) return res.status(400).json({ error: 'Insufficient balance' });
+    if (selErr || !existing || !existing.length) return json({ error: 'Profile not found' }, 404);
+    if (Number(existing[0].balance) < price) return json({ error: 'Insufficient balance' }, 400);
 
     const lockKey = `user:${userId}`;
     const locked = await acquireLock(lockKey);
-    if (!locked) return res.status(429).json({ error: 'Another transaction is already processing for this account. Please try again in a few seconds.' });
+    if (!locked) return json({ error: 'Another transaction is already processing for this account. Please try again in a few seconds.' }, 429);
 
     try {
       let number = '';
       let fivesimOrderId = '';
       try {
-        const apiKey = process.env.FIVESIM_API_KEY!;
+        const apiKey = env('FIVESIM_API_KEY');
         const r = await fetch(
           `https://5sim.net/v1/user/buy/activation/${countryCode}/any/${fivesimCode}`,
           { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' } }
@@ -59,24 +59,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const { data: freshRows } = await supabase.from('users').select('*').eq('user_id', userId).limit(1);
-      if (!freshRows || !freshRows.length) return res.status(404).json({ error: 'Profile not found' });
+      if (!freshRows || !freshRows.length) return json({ error: 'Profile not found' }, 404);
       const freshUser = freshRows[0];
-      if (Number(freshUser.balance) < price) return res.status(400).json({ error: 'Insufficient balance' });
+      if (Number(freshUser.balance) < price) return json({ error: 'Insufficient balance' }, 400);
 
       const { error: updErr } = await supabase.from('users').update({ balance: Number(freshUser.balance) - price }).eq('id', freshUser.id);
-      if (updErr) return res.status(500).json({ error: 'Failed to update balance' });
+      if (updErr) return json({ error: 'Failed to update balance' }, 500);
 
       const { data: orderInserted, error: orderErr } = await supabase.from('orders').insert({
         user_id: userId, service, service_icon: serviceIcon, number, country, price, fivesim_order_id: fivesimOrderId,
       }).select().single();
-      if (orderErr || !orderInserted) return res.status(500).json({ error: 'Failed to save order' });
+      if (orderErr || !orderInserted) return json({ error: 'Failed to save order' }, 500);
 
       await supabase.from('transactions').insert({ user_id: userId, type: 'debit', description: `${service} — ${country}`, amount: price });
-      return res.status(200).json({ order: toOrder(orderInserted) });
+      return json({ order: toOrder(orderInserted) });
     } finally {
       await releaseLock(lockKey);
     }
   }
 
-  res.status(405).json({ error: 'Method not allowed' });
-}
+  return json({ error: 'Method not allowed' }, 405);
+};
+
+export const config: Config = { path: '/api/orders' };

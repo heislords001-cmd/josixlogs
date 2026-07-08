@@ -19,15 +19,21 @@ export function calcPrice(usdCost: number): number {
   return Math.ceil((usdCost * USD_TO_NGN * MARKUP) / 50) * 50;
 }
 
+function env(key: string): string {
+  return (typeof Netlify !== 'undefined' ? Netlify.env.get(key) : process.env[key]) ?? '';
+}
+
 let cachedClient: SupabaseClient | null = null;
-export async function getSupabase(): Promise<SupabaseClient> {
+export function getSupabase(): SupabaseClient {
   if (cachedClient) return cachedClient;
-  const url = process.env.SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const url = env('SUPABASE_URL');
+  const key = env('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !key) throw new Error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY env vars');
   cachedClient = createClient(url, key, { auth: { persistSession: false } });
   return cachedClient;
 }
+
+export { env };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toUserRecord(row: any): UserRecord {
@@ -68,7 +74,7 @@ export function toLog(row: any) {
 }
 
 export async function getOrCreateProfile(userId: string, email: string, name: string): Promise<UserRecord> {
-  const supabase = await getSupabase();
+  const supabase = getSupabase();
   const { data: existing, error: selErr } = await supabase.from('users').select('*').eq('user_id', userId).limit(1);
   if (selErr) throw new Error(selErr.message);
   if (existing && existing.length > 0) return toUserRecord(existing[0]);
@@ -78,7 +84,7 @@ export async function getOrCreateProfile(userId: string, email: string, name: st
   let paystackCustomerCode = '';
 
   try {
-    const secretKey = process.env.PAYSTACK_SECRET_KEY!;
+    const secretKey = env('PAYSTACK_SECRET_KEY');
     const custRes = await fetch('https://api.paystack.co/customer', {
       method: 'POST',
       headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
@@ -131,7 +137,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
 };
 
 export async function acquireLock(key: string): Promise<boolean> {
-  const supabase = await getSupabase();
+  const supabase = getSupabase();
   const LOCK_TTL_MS = 15000;
   const cutoff = new Date(Date.now() - LOCK_TTL_MS).toISOString();
   await supabase.from('locks').delete().eq('key', key).lt('created_at', cutoff);
@@ -142,6 +148,6 @@ export async function acquireLock(key: string): Promise<boolean> {
 }
 
 export async function releaseLock(key: string): Promise<void> {
-  const supabase = await getSupabase();
+  const supabase = getSupabase();
   await supabase.from('locks').delete().eq('key', key);
 }
