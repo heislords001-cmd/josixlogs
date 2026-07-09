@@ -332,8 +332,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                   ))}
                 </div>
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                {currency === 'NGN' ? (<><span style={{ fontSize: 18, color: 'var(--muted2)', marginRight: 2 }}>₦</span>{fmt(bal)}</>) : (<><span style={{ fontSize: 18, color: 'var(--muted2)', marginRight: 2 }}>$</span>{fmt(bal / NGN_PER_USD)}</>)}
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>
+                {currency === 'NGN' ? (<><span style={{ fontSize: 18, color: 'var(--accent)', opacity: 0.7, marginRight: 2 }}>₦</span>{fmt(bal)}</>) : (<><span style={{ fontSize: 18, color: 'var(--accent)', opacity: 0.7, marginRight: 2 }}>$</span>{fmt(bal / NGN_PER_USD)}</>)}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted2)', marginBottom: 16 }}>{currency === 'USD' ? `≈ Approximate rate, ₦${NGN_PER_USD.toLocaleString()}/$1` : 'Nigerian Naira'}</div>
               <button className="btn btn-primary btn-sm" onClick={() => setFundOpen(true)}>+ Add Funds</button>
@@ -696,8 +696,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                   ))}
                 </div>
               </div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 700, color: 'var(--text)' }}>
-                {currency === 'NGN' ? (<><span style={{ fontSize: 18, color: 'var(--muted2)', marginRight: 2 }}>₦</span>{fmt(bal)}</>) : (<><span style={{ fontSize: 18, color: 'var(--muted2)', marginRight: 2 }}>$</span>{fmt(bal / NGN_PER_USD)}</>)}
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 700, color: 'var(--accent)' }}>
+                {currency === 'NGN' ? (<><span style={{ fontSize: 18, color: 'var(--accent)', opacity: 0.7, marginRight: 2 }}>₦</span>{fmt(bal)}</>) : (<><span style={{ fontSize: 18, color: 'var(--accent)', opacity: 0.7, marginRight: 2 }}>$</span>{fmt(bal / NGN_PER_USD)}</>)}
               </div>
             </div>
             <div style={card}>
