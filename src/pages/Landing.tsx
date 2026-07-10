@@ -12,7 +12,7 @@ export default function Landing({ onLogin, onSignup }: LandingProps) {
         position: 'sticky', top: 0, zIndex: 100,
       }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: 'var(--accent)', letterSpacing: 2 }}>
-          JX<span style={{ color: 'var(--text)' }}>LOGS</span>
+          JX<span style={{ color: 'var(--accent)', opacity: 0.65 }}>LOGS</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost btn-sm" onClick={onLogin}>Log in</button>

@@ -2,7 +2,7 @@ export interface Service {
   id: string;
   name: string;
   logo: string; // URL to real brand logo
-  category: string;
+  category?: string;
   fivesimCode: string;
   badge?: 'HOT' | 'NEW' | 'GOLD' | 'PRO';
 }

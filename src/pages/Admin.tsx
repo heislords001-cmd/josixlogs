@@ -213,7 +213,7 @@ export default function Admin({ user, onBack }: AdminProps) {
             ←
           </button>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--accent)', letterSpacing: 2 }}>
-            JX<span style={{ color: 'var(--text)' }}>LOGS</span>
+            JX<span style={{ color: 'var(--accent)', opacity: 0.65 }}>LOGS</span>
             <span style={{ color: 'var(--muted)', marginLeft: 8 }}>/ ADMIN</span>
           </div>
         </div>

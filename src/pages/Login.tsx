@@ -11,6 +11,7 @@ interface LoginProps {
 export default function Login({ onAuth, onEmailLogin, onBack, onSignup }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,6 +33,23 @@ export default function Login({ onAuth, onEmailLogin, onBack, onSignup }: LoginP
     color: 'var(--text)', outline: 'none',
   } as const;
 
+  const eyeButtonStyle = {
+    position: 'absolute' as const, right: 12, top: '50%', transform: 'translateY(-50%)',
+    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted2)',
+    padding: 4, display: 'flex', alignItems: 'center',
+  };
+
+  const EyeIcon = ({ open }: { open: boolean }) => open ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.3 20.3 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <path d="M1 1l22 22" />
+    </svg>
+  );
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 58, borderBottom: '1px solid var(--border)', background: 'rgba(8,7,10,0.92)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 100 }}>
@@ -39,7 +57,7 @@ export default function Login({ onAuth, onEmailLogin, onBack, onSignup }: LoginP
           ← Back
         </button>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: 'var(--accent)', letterSpacing: 2 }}>
-          JX<span style={{ color: 'var(--text)' }}>LOGS</span>
+          JX<span style={{ color: 'var(--accent)', opacity: 0.65 }}>LOGS</span>
         </div>
         <div style={{ width: 60 }} />
       </nav>
@@ -77,15 +95,20 @@ export default function Login({ onAuth, onEmailLogin, onBack, onSignup }: LoginP
               autoComplete="email"
               style={inputStyle}
             />
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-              placeholder="Password"
-              autoComplete="current-password"
-              style={inputStyle}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+                placeholder="Password"
+                autoComplete="current-password"
+                style={{ ...inputStyle, paddingRight: 40 }}
+              />
+              <button type="button" onClick={() => setShowPassword(s => !s)} style={eyeButtonStyle} title={showPassword ? 'Hide password' : 'Show password'}>
+                <EyeIcon open={showPassword} />
+              </button>
+            </div>
 
             {error && <div style={{ fontSize: 12.5, color: 'var(--red)', lineHeight: 1.5 }}>{error}</div>}
 

@@ -73,12 +73,17 @@ export default function App() {
     if (err) alert('Sign-in failed: ' + err.message);
   };
 
-  const handleEmailSignup = async (email: string, password: string): Promise<{ error?: string; needsConfirmation?: boolean }> => {
+  const handleEmailSignup = async (username: string, email: string, password: string): Promise<{ error?: string; needsConfirmation?: boolean }> => {
     const supabase = await getSupabaseClient();
     const { data, error: err } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: {
+        emailRedirectTo: window.location.origin,
+        // Without this, the auth listener falls back to using the raw email
+        // as the display name — this is what actually sets the username.
+        data: { full_name: username },
+      },
     });
     if (err) return { error: err.message };
     // With "Confirm email" enabled in Supabase, signUp succeeds but returns

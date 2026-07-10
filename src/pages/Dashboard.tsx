@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import type { AuthUser } from '../lib/authTypes';
 import type { User, Order, Transaction, LogItem } from '../types';
-import { SERVICES } from '../services';
+import type { Service } from '../services';
 import Spinner from '../components/Spinner';
 import Toast from '../components/Toast';
 import Modal from '../components/Modal';
@@ -99,7 +99,9 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
   const [supportOpen, setSupportOpen] = useState(false);
 
   // Store state
-  const [selectedService, setSelectedService] = useState<typeof SERVICES[0]>(SERVICES[0]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [countryPrices, setCountryPrices] = useState<{ country: string; countryCode: string; price: number; available: number }[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
@@ -190,7 +192,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
   const [purchasedCreds, setPurchasedCreds] = useState<{ label: string; platform: string; creds: string } | null>(null);
 
-  const selectService = async (svc: typeof SERVICES[0]) => {
+  const selectService = async (svc: Service) => {
     setSelectedService(svc);
     setLoadingPrices(true);
     setCountryPrices([]);
@@ -208,14 +210,35 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     }
   };
 
-  useEffect(() => { if (tab === 'store' && countryPrices.length === 0 && !loadingPrices) { selectService(selectedService); } }, [tab]);
+  // Pull the live full catalog from 5sim once, instead of a hand-picked list.
+  useEffect(() => {
+    const loadCatalog = async () => {
+      setCatalogLoading(true);
+      try {
+        const res = await api.get<{ services: Service[] }>('/api/services-catalog');
+        const list = res.data.services || [];
+        setAllServices(list);
+      } catch {
+        showToast('Failed to load platform list', 'error');
+      } finally {
+        setCatalogLoading(false);
+      }
+    };
+    loadCatalog();
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'store' && !selectedService && allServices.length > 0) {
+      selectService(allServices[0]);
+    }
+  }, [tab, allServices]);
 
   const selectedCountry = countryPrices.find(c => c.countryCode === selectedCountryCode) ?? null;
   const [platformSearch, setPlatformSearch] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
-  const filteredServices = SERVICES.filter(s =>
+  const filteredServices = allServices.filter(s =>
     s.name.toLowerCase().includes(platformSearch.toLowerCase()) ||
-    s.category.toLowerCase().includes(platformSearch.toLowerCase())
+    (s.category ?? '').toLowerCase().includes(platformSearch.toLowerCase())
   );
   const filteredCountries = countryPrices.filter(c =>
     c.country.toLowerCase().includes(countrySearch.toLowerCase())
@@ -280,7 +303,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
       <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 56, borderBottom: '1px solid var(--accent-a08)', background: 'rgba(3,2,10,0.95)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 700, color: 'var(--accent)', letterSpacing: 2, textShadow: '0 0 20px var(--accent-a30)' }}>
-          JX<span style={{ color: 'var(--text)' }}>LOGS</span>
+          JX<span style={{ color: 'var(--accent)', opacity: 0.65 }}>LOGS</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Notification bell */}
@@ -451,9 +474,13 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                 <div style={{ background: 'var(--accent-a06)', border: '1px solid var(--accent-a12)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: 'var(--muted2)', lineHeight: 1.6, marginBottom: 20 }}>Use this number for SMS verification. One-time use — copy it now.</div>
                 <button className="btn btn-primary btn-full" onClick={() => setPurchasedNumber(null)}>Buy Another</button>
               </div>
+            ) : catalogLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted2)', fontSize: 14 }}>
+                <Spinner size={16} /> Loading the full platform list from 5sim...
+              </div>
             ) : (
               <>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Select Platform</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Select Platform ({allServices.length} available)</div>
                 <div style={{ ...card, marginBottom: 20 }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 9, padding: '8px 10px' }}>
@@ -461,7 +488,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                       <input
                         value={platformSearch}
                         onChange={e => setPlatformSearch(e.target.value)}
-                        placeholder="Search platform or category..."
+                        placeholder="Search platform..."
                         style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font)' }}
                       />
                     </div>
@@ -487,7 +514,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                                 <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: 0.4, padding: '2px 5px', borderRadius: 5, color: '#000', fontFamily: 'var(--mono)', background: s.badge === 'HOT' ? '#FF6B4A' : s.badge === 'NEW' ? '#34D399' : s.badge === 'GOLD' ? 'var(--accent)' : '#8B7FFF' }}>{s.badge}</span>
                               )}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--muted2)' }}>{s.category}</div>
+                            {s.category && <div style={{ fontSize: 11, color: 'var(--muted2)' }}>{s.category}</div>}
                           </div>
                           <div style={{ width: 20, height: 20, borderRadius: '50%', border: `1.5px solid ${isActive ? 'var(--accent)' : 'var(--border2)'}`, background: isActive ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {isActive && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
@@ -553,7 +580,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                   <div style={{ background: 'linear-gradient(135deg,#161208,#0F0E12)', border: '1px solid var(--accent-a20)', borderRadius: 14, padding: '18px 16px', marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedService.name} Number</div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedService?.name} Number</div>
                         <div style={{ fontSize: 13, color: 'var(--muted2)', marginTop: 2 }}>{selectedCountry.country}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
