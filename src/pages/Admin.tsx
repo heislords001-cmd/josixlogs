@@ -24,7 +24,7 @@ interface AdminProps {
 const PLATFORMS = [
   'Facebook', 'Instagram', 'Twitter', 'TikTok', 'Snapchat',
   'Discord', 'LinkedIn', 'Telegram', 'Gmail', 'Reddit',
-  'YouTube', 'Pinterest', 'Twitch', 'Netflix', 'Spotify',
+  'YouTube', 'Pinterest', 'Twitch', 'Netflix', 'Spotify', 'VPN',
 ];
 
 const DOMAIN_MAP: Record<string, string> = {
@@ -33,6 +33,8 @@ const DOMAIN_MAP: Record<string, string> = {
   LinkedIn: 'linkedin.com', Telegram: 'telegram.org', Gmail: 'gmail.com',
   Reddit: 'reddit.com', YouTube: 'youtube.com', Pinterest: 'pinterest.com',
   Twitch: 'twitch.tv', Netflix: 'netflix.com', Spotify: 'spotify.com',
+  // VPN intentionally omitted — providers vary (NordVPN, ExpressVPN, Surfshark...),
+  // so the domain field stays editable per-log instead of one fixed icon.
 };
 
 const card = {
