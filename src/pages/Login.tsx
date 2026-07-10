@@ -1,6 +1,37 @@
-interface LoginProps { onAuth: () => void; onBack: () => void; onSignup: () => void; }
+import { useState } from 'react';
+import Spinner from '../components/Spinner';
 
-export default function Login({ onAuth, onBack, onSignup }: LoginProps) {
+interface LoginProps {
+  onAuth: () => void;
+  onEmailLogin: (email: string, password: string) => Promise<{ error?: string }>;
+  onBack: () => void;
+  onSignup: () => void;
+}
+
+export default function Login({ onAuth, onEmailLogin, onBack, onSignup }: LoginProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const res = await onEmailLogin(email.trim(), password);
+    if (res.error) setError(res.error);
+    setSubmitting(false);
+  };
+
+  const inputStyle = {
+    width: '100%', background: 'var(--surface2)', border: '1.5px solid var(--border2)',
+    borderRadius: 10, padding: '12px 14px', fontFamily: 'var(--font)', fontSize: 14,
+    color: 'var(--text)', outline: 'none',
+  } as const;
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 58, borderBottom: '1px solid var(--border)', background: 'rgba(8,7,10,0.92)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 100 }}>
@@ -21,7 +52,7 @@ export default function Login({ onAuth, onBack, onSignup }: LoginProps) {
             <p style={{ color: 'var(--muted2)', fontSize: 14 }}>Access your dashboard and virtual numbers.</p>
           </div>
 
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <button
               onClick={onAuth}
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '13px 20px', background: '#fff', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#111', transition: 'opacity 0.15s' }}
@@ -34,9 +65,38 @@ export default function Login({ onAuth, onBack, onSignup }: LoginProps) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12 }}>
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              or
+              or sign in with email
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
+
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Email address"
+              autoComplete="email"
+              style={inputStyle}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+              placeholder="Password"
+              autoComplete="current-password"
+              style={inputStyle}
+            />
+
+            {error && <div style={{ fontSize: 12.5, color: 'var(--red)', lineHeight: 1.5 }}>{error}</div>}
+
+            <button
+              onClick={submit}
+              disabled={submitting}
+              className="btn btn-primary btn-full"
+              style={{ opacity: submitting ? 0.6 : 1 }}
+            >
+              {submitting ? <><Spinner size={16} color="#000" /> Signing in...</> : 'Sign In'}
+            </button>
 
             <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted2)', margin: 0 }}>
               Don't have an account?{' '}

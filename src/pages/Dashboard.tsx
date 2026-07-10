@@ -6,8 +6,9 @@ import { SERVICES } from '../services';
 import Spinner from '../components/Spinner';
 import Toast from '../components/Toast';
 import Modal from '../components/Modal';
+import SupportChat from '../components/SupportChat';
 
-type Tab = 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile';
+type Tab = 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support';
 
 interface DashboardProps {
   user: AuthUser;
@@ -27,7 +28,7 @@ function Badge({ children, color = 'var(--accent)' }: { children: React.ReactNod
   );
 }
 
-function NavIcon({ id }: { id: 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' }) {
+function NavIcon({ id }: { id: 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support' }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (id) {
     case 'home':
@@ -40,6 +41,8 @@ function NavIcon({ id }: { id: 'home' | 'store' | 'logs' | 'boost' | 'orders' | 
       return (<svg {...common}><path d="M5 15c-1-4 1-9 5-11 1 3 4 4 6 8 1.5 3-.5 6.5-3 8-1-2-2-3-4-3s-3 1-4 3c-1-1.5-1-3 0-5Z" /><circle cx="12" cy="10" r="1.4" /></svg>);
     case 'wallet':
       return (<svg {...common}><rect x="2.5" y="6" width="19" height="13" rx="2.5" /><path d="M2.5 10h19" /><circle cx="17.5" cy="14.5" r="1.2" fill="currentColor" stroke="none" /></svg>);
+    case 'support':
+      return (<svg {...common}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></svg>);
     default:
       return null;
   }
@@ -347,10 +350,11 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               ))}
             </div>
             {/* Quick links */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
               {[
                 { label: 'Virtual Numbers', sub: 'Buy SMS numbers', tab: 'store' as Tab, icon: '📱' },
                 { label: 'Logs', sub: 'Social accounts', tab: 'logs' as Tab, icon: '📁' },
+                { label: 'Customer Service', sub: 'Get help fast', tab: 'support' as Tab, icon: '💬' },
               ].map(item => (
                 <div key={item.label} onClick={() => setTab(item.tab)}
                   style={{ ...card, padding: '16px 14px', cursor: 'pointer', transition: 'all 0.15s' }}
@@ -776,45 +780,37 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
           </div>
         )}
 
+        {/* SUPPORT (dashboard tab) */}
+        {tab === 'support' && (
+          <div style={{ animation: 'fadeIn 0.2s ease' }}>
+            <div style={sectionTitle}>Customer Service</div>
+            <div style={{ ...card, padding: '14px 16px' }}>
+              <SupportChat />
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* Bottom nav — floating pill */}
-      <div style={{
-        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-        width: 'calc(100% - 32px)', maxWidth: 480,
-        background: 'rgba(8,6,14,0.92)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid var(--accent-a12)',
-        borderRadius: 24,
-        display: 'flex',
-        zIndex: 100,
-        padding: '6px',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--accent-a06) inset',
-        paddingBottom: 'calc(6px + env(safe-area-inset-bottom))',
-      }}>
+      {/* App nav — floating pill on phones, sidebar on desktop (see .app-nav in index.css) */}
+      <div className="app-nav">
         {NAV.map(item => {
           const isActive = tab === item.id;
           return (
             <button key={item.id}
+              className="app-nav-item"
               onClick={() => { setTab(item.id); setPurchasedNumber(null); setPurchasedCreds(null); }}
               style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '8px 4px',
                 background: isActive ? 'var(--accent-a10)' : 'transparent',
-                border: 'none',
-                borderRadius: 18,
                 cursor: 'pointer',
                 color: isActive ? 'var(--accent)' : 'var(--muted)',
-                transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                gap: 3,
-                position: 'relative',
                 transform: isActive ? 'translateY(-2px)' : 'none',
                 animation: isActive ? 'goldPulse 2s infinite' : 'none',
               }}
             >
-              {/* Active dot */}
+              {/* Active dot (mobile only — hidden on desktop sidebar layout) */}
               {isActive && (
-                <div style={{
+                <div className="app-nav-dot" style={{
                   position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
                   width: 4, height: 4, borderRadius: '50%',
                   background: 'var(--accent)',
@@ -822,8 +818,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                   animation: 'popIn 0.3s ease',
                 }} />
               )}
-              <span style={{ display: 'flex', marginTop: 6, transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)', transform: isActive ? 'scale(1.15)' : 'scale(1)' }}><NavIcon id={item.id} /></span>
-              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', letterSpacing: 0.5, textTransform: 'uppercase' }}>{item.label}</span>
+              <span className="app-nav-icon" style={{ transform: isActive ? 'scale(1.15)' : 'scale(1)' }}><NavIcon id={item.id} /></span>
+              <span className="app-nav-label">{item.label}</span>
             </button>
           );
         })}
@@ -831,8 +827,9 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
       {/* Floating support button */}
       <button
+        className="floating-support-btn"
         onClick={() => setSupportOpen(true)}
-        title="Contact Support"
+        title="Customer Service"
         style={{
           position: 'fixed', bottom: 92, right: 16, width: 48, height: 48, borderRadius: '50%',
           background: 'var(--accent)', color: '#000', border: 'none', cursor: 'pointer',
@@ -847,12 +844,8 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
       {/* SUPPORT MODAL */}
       {supportOpen && (
-        <Modal onClose={() => setSupportOpen(false)} title="Contact Support" subtitle="We usually reply within a few minutes.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-            <a href="https://wa.me/234XXXXXXXXXX" target="_blank" rel="noreferrer" className="btn btn-primary btn-full" style={{ textDecoration: 'none' }}>💬 Chat on WhatsApp</a>
-            <a href="mailto:support@josixlogs.com" className="btn btn-ghost btn-full" style={{ textDecoration: 'none' }}>✉️ Email Support</a>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted2)', lineHeight: 1.6 }}>Placeholder contact details — replace the WhatsApp number and email above with your real support contact.</div>
+        <Modal onClose={() => setSupportOpen(false)} title="Customer Service">
+          <SupportChat compact />
         </Modal>
       )}
 

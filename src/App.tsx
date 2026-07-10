@@ -73,6 +73,27 @@ export default function App() {
     if (err) alert('Sign-in failed: ' + err.message);
   };
 
+  const handleEmailSignup = async (email: string, password: string): Promise<{ error?: string; needsConfirmation?: boolean }> => {
+    const supabase = await getSupabaseClient();
+    const { data, error: err } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (err) return { error: err.message };
+    // With "Confirm email" enabled in Supabase, signUp succeeds but returns
+    // no active session until the user clicks the link in their inbox.
+    if (!data.session) return { needsConfirmation: true };
+    return {};
+  };
+
+  const handleEmailLogin = async (email: string, password: string): Promise<{ error?: string }> => {
+    const supabase = await getSupabaseClient();
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    if (err) return { error: err.message };
+    return {};
+  };
+
   const handleSignOut = async () => {
     const supabase = await getSupabaseClient();
     await supabase.auth.signOut();
@@ -96,8 +117,8 @@ export default function App() {
         </>
       )}
       {page === 'landing' && <Landing onLogin={() => setPage('login')} onSignup={() => setPage('signup')} />}
-      {page === 'login' && <Login onAuth={handleAuth} onBack={() => setPage('landing')} onSignup={() => setPage('signup')} />}
-      {page === 'signup' && <Signup onAuth={handleAuth} onBack={() => setPage('landing')} onLogin={() => setPage('login')} />}
+      {page === 'login' && <Login onAuth={handleAuth} onEmailLogin={handleEmailLogin} onBack={() => setPage('landing')} onSignup={() => setPage('signup')} />}
+      {page === 'signup' && <Signup onAuth={handleAuth} onEmailSignup={handleEmailSignup} onBack={() => setPage('landing')} onLogin={() => setPage('login')} />}
     </>
   );
 }
