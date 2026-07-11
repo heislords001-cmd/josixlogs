@@ -25,32 +25,32 @@ export default async (req: Request) => {
   const { messages } = await req.json() as { messages: { role: 'user' | 'assistant'; content: string }[] };
   if (!Array.isArray(messages) || messages.length === 0) return json({ error: 'Missing messages' }, 400);
 
-  const apiKey = env('NVIDIA_API_KEY');
+  // Reads GROQ_API_KEY if present, otherwise falls back to whatever key is
+  // currently sitting in NVIDIA_API_KEY (that var still holds the Groq key
+  // for now) — works either way without requiring a Netlify change first.
+  const apiKey = env('GROQ_API_KEY') || env('NVIDIA_API_KEY');
   if (!apiKey) {
     return json({ reply: "Customer service chat isn't set up yet. Please email us instead.", redirect: true });
   }
 
   try {
-    const r = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-ai/deepseek-v4-flash',
+        model: 'openai/gpt-oss-20b',
         messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages.slice(-10)],
         max_tokens: 300,
         temperature: 0.4,
         stream: false,
-        // Disables extended "thinking" mode — needed for v4 models to return
-        // a plain answer instead of hanging while it streams reasoning tokens.
-        chat_template_kwargs: { thinking: false },
       }),
     });
 
     if (!r.ok) {
-      console.error('NVIDIA NIM API error:', r.status, await r.text());
+      console.error('Groq API error:', r.status, await r.text());
       return json({ reply: "I'm having trouble answering right now — reach a person instead.", redirect: true });
     }
 

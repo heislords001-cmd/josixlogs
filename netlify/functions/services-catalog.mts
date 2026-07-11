@@ -16,9 +16,10 @@ export default async (req: Request) => {
 
   try {
     const apiKey = env('FIVESIM_API_KEY');
-    // No product/country filter — 5sim returns its ENTIRE catalog this way,
-    // which is what lets us list everything they offer instead of a
-    // hand-picked subset.
+    // With no filters, 5sim's shape is {country: {product: {operator: {...}}}} —
+    // the OPPOSITE nesting from the product-filtered endpoint we use in
+    // prices.mts, which returns {product: {country: {operator}}}. Products
+    // live one level deeper here, not at the top.
     const r = await fetch('https://5sim.net/v1/guest/prices', {
       headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
     });
@@ -28,15 +29,19 @@ export default async (req: Request) => {
     }
     const raw = await r.json() as Record<string, Record<string, Record<string, { cost: number; count: number }>>>;
 
-    const services = Object.keys(raw)
-      .filter(slug => {
-        // Skip products with zero live availability anywhere so the list
-        // stays browsable instead of full of dead entries.
-        const countries = raw[slug];
-        return Object.values(countries).some(ops =>
-          Object.values(ops).some(o => o && o.count > 0 && o.cost > 0)
-        );
-      })
+    const availability = new Map<string, boolean>();
+    for (const country of Object.keys(raw)) {
+      const products = raw[country];
+      for (const product of Object.keys(products)) {
+        const operators = products[product];
+        const hasStock = Object.values(operators).some(o => o && o.count > 0 && o.cost > 0);
+        availability.set(product, (availability.get(product) ?? false) || hasStock);
+      }
+    }
+
+    const services = Array.from(availability.entries())
+      .filter(([, available]) => available)
+      .map(([slug]) => slug)
       .sort((a, b) => a.localeCompare(b))
       .map(slug => ({
         id: slug,
