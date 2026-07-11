@@ -1,12 +1,16 @@
 import type { Config } from '@netlify/functions';
 import { requireAuth, json } from './_lib/auth';
-import { getSupabase, acquireLock, releaseLock } from './_lib/db';
+import { getSupabase, acquireLock, releaseLock, checkRateLimit } from './_lib/db';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const user = await requireAuth(req);
   if (user instanceof Response) return user;
   const { userId } = user;
+
+  const allowed = await checkRateLimit(`buy-log:${userId}`, 30, 10 * 60 * 1000);
+  if (!allowed) return json({ error: 'Too many purchases too fast — wait a moment and try again.' }, 429);
+
   const { logId } = await req.json() as { logId: string };
   const supabase = getSupabase();
 

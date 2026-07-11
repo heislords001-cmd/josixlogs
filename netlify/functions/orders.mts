@@ -1,6 +1,6 @@
 import type { Config } from '@netlify/functions';
 import { requireAuth, json } from './_lib/auth';
-import { getSupabase, toOrder, acquireLock, releaseLock, env } from './_lib/db';
+import { getSupabase, toOrder, acquireLock, releaseLock, env, checkRateLimit } from './_lib/db';
 
 export default async (req: Request) => {
   const user = await requireAuth(req);
@@ -14,6 +14,9 @@ export default async (req: Request) => {
   }
 
   if (req.method === 'POST') {
+    const allowed = await checkRateLimit(`buy-number:${userId}`, 30, 10 * 60 * 1000);
+    if (!allowed) return json({ error: 'Too many purchases too fast — wait a moment and try again.' }, 429);
+
     const { service, serviceIcon, fivesimCode, countryCode, country, price } = await req.json() as {
       service: string; serviceIcon: string; fivesimCode: string;
       countryCode: string; country: string; price: number;

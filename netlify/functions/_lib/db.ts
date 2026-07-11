@@ -151,3 +151,24 @@ export async function releaseLock(key: string): Promise<void> {
   const supabase = getSupabase();
   await supabase.from('locks').delete().eq('key', key);
 }
+
+/**
+ * Fixed-window rate limiter backed by Supabase, so it holds across
+ * serverless invocations (an in-memory counter would reset per cold start).
+ * Returns true if the request is allowed, false if the caller is over limit.
+ */
+export async function checkRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const supabase = getSupabase();
+  const now = Date.now();
+  const { data: existing } = await supabase.from('rate_limits').select('*').eq('key', key).maybeSingle();
+
+  if (!existing || now - new Date(existing.window_start).getTime() > windowMs) {
+    await supabase.from('rate_limits').upsert({ key, window_start: new Date().toISOString(), count: 1 });
+    return true;
+  }
+
+  if (existing.count >= limit) return false;
+
+  await supabase.from('rate_limits').update({ count: existing.count + 1 }).eq('key', key);
+  return true;
+}

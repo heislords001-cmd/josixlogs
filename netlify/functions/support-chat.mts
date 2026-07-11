@@ -1,6 +1,6 @@
 import type { Config } from '@netlify/functions';
 import { requireAuth, json } from './_lib/auth';
-import { env } from './_lib/db';
+import { env, checkRateLimit } from './_lib/db';
 
 const SYSTEM_PROMPT = `You are the customer service assistant for JXLOGS, a site that sells:
 - Virtual phone numbers for SMS verification (bought per-country, delivered instantly)
@@ -21,6 +21,12 @@ export default async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const user = await requireAuth(req);
   if (user instanceof Response) return user;
+
+  // Each message here costs real money at Groq — cap abuse/spam per user.
+  const allowed = await checkRateLimit(`support-chat:${user.userId}`, 20, 10 * 60 * 1000);
+  if (!allowed) {
+    return json({ reply: "You're sending messages a bit fast — give it a minute and try again.", redirect: false }, 429);
+  }
 
   const { messages } = await req.json() as { messages: { role: 'user' | 'assistant'; content: string }[] };
   if (!Array.isArray(messages) || messages.length === 0) return json({ error: 'Missing messages' }, 400);
