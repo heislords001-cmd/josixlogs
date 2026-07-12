@@ -104,12 +104,13 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
 
   // Boost (SMM panel) state
   interface BoostService {
-    id: string; provider: string; providerServiceId: number; name: string;
-    category: string; ratePerThousandNGN: number; min: number; max: number;
+    id: string; provider: string; server: string; providerServiceId: number; name: string;
+    category: string; platform: string; ratePerThousandNGN: number; min: number; max: number;
   }
   const [boostServices, setBoostServices] = useState<BoostService[]>([]);
   const [boostCatalogLoading, setBoostCatalogLoading] = useState(true);
   const [boostSearch, setBoostSearch] = useState('');
+  const [boostPlatformFilter, setBoostPlatformFilter] = useState('All');
   const [selectedBoostService, setSelectedBoostService] = useState<BoostService | null>(null);
   const [boostLink, setBoostLink] = useState('');
   const [boostQuantity, setBoostQuantity] = useState('');
@@ -265,9 +266,11 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
     loadBoostCatalog();
   }, [tab]);
 
+  const boostPlatforms = ['All', ...Array.from(new Set(boostServices.map(s => s.platform))).sort((a, b) => a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b))];
   const filteredBoostServices = boostServices.filter(s =>
-    s.name.toLowerCase().includes(boostSearch.toLowerCase()) ||
-    s.category.toLowerCase().includes(boostSearch.toLowerCase())
+    (boostPlatformFilter === 'All' || s.platform === boostPlatformFilter) &&
+    (s.name.toLowerCase().includes(boostSearch.toLowerCase()) ||
+     s.category.toLowerCase().includes(boostSearch.toLowerCase()))
   );
 
   const boostQuantityNum = Number(boostQuantity) || 0;
@@ -799,7 +802,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               <div style={{ ...card, padding: '18px 16px' }}>
                 <button onClick={() => setSelectedBoostService(null)} style={{ background: 'none', border: 'none', color: 'var(--muted2)', cursor: 'pointer', fontSize: 13, marginBottom: 14, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>← Choose a different service</button>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{selectedBoostService.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: 16 }}>{selectedBoostService.category} · Min {selectedBoostService.min.toLocaleString()} · Max {selectedBoostService.max.toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: 16 }}>{selectedBoostService.category} · {selectedBoostService.server} · Min {selectedBoostService.min.toLocaleString()} · Max {selectedBoostService.max.toLocaleString()}</div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Link</label>
@@ -840,6 +843,28 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             ) : (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Select Service ({boostServices.length} available)</div>
+
+                {/* Platform quick-filter chips */}
+                {boostPlatforms.length > 1 && (
+                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14, paddingBottom: 2 }}>
+                    {boostPlatforms.map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setBoostPlatformFilter(p)}
+                        style={{
+                          flexShrink: 0, padding: '7px 14px', borderRadius: 100, fontSize: 12.5, fontWeight: 600,
+                          border: `1.5px solid ${boostPlatformFilter === p ? 'var(--accent)' : 'var(--border2)'}`,
+                          background: boostPlatformFilter === p ? 'var(--accent-dim)' : 'var(--surface2)',
+                          color: boostPlatformFilter === p ? 'var(--accent)' : 'var(--muted2)',
+                          cursor: 'pointer', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{ ...card, marginBottom: 20 }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 9, padding: '8px 10px' }}>
@@ -864,7 +889,10 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
                         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i === filteredBoostServices.length - 1 ? 'none' : '1px solid var(--border)', cursor: 'pointer' }}
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{s.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{s.name}</span>
+                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.3, padding: '2px 7px', borderRadius: 100, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--muted2)', fontFamily: 'var(--mono)' }}>{s.server}</span>
+                          </div>
                           <div style={{ fontSize: 11, color: 'var(--muted2)' }}>{s.category}</div>
                         </div>
                         <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', flexShrink: 0 }}>₦{s.ratePerThousandNGN.toLocaleString()}/1k</div>

@@ -5,6 +5,7 @@ import type { AuthUser } from './lib/authTypes';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Spinner from './components/Spinner';
@@ -26,7 +27,7 @@ function toAuthUser(session: Session | null): AuthUser | null {
 }
 
 export default function App() {
-  const [page, setPage] = useState<'landing' | 'login' | 'signup' | 'dashboard' | 'admin'>('landing');
+  const [page, setPage] = useState<'landing' | 'login' | 'signup' | 'dashboard' | 'admin' | 'reset-password'>('landing');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +44,14 @@ export default function App() {
       }
       setLoading(false);
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+        // A password-recovery link lands here with a valid temporary session
+        // and this specific event — intercept it before the normal
+        // logged-in-user routing below sends them straight to the dashboard.
+        if (event === 'PASSWORD_RECOVERY') {
+          setPage('reset-password');
+          return;
+        }
         const nu = toAuthUser(session);
         setUser(nu);
         if (nu) {
@@ -99,6 +107,22 @@ export default function App() {
     return {};
   };
 
+  const handleForgotPassword = async (email: string): Promise<{ error?: string }> => {
+    const supabase = await getSupabaseClient();
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (err) return { error: err.message };
+    return {};
+  };
+
+  const handleSetNewPassword = async (password: string): Promise<{ error?: string }> => {
+    const supabase = await getSupabaseClient();
+    const { error: err } = await supabase.auth.updateUser({ password });
+    if (err) return { error: err.message };
+    return {};
+  };
+
   const handleSignOut = async () => {
     const supabase = await getSupabaseClient();
     await supabase.auth.signOut();
@@ -122,8 +146,9 @@ export default function App() {
         </>
       )}
       {page === 'landing' && <Landing onLogin={() => setPage('login')} onSignup={() => setPage('signup')} />}
-      {page === 'login' && <Login onAuth={handleAuth} onEmailLogin={handleEmailLogin} onBack={() => setPage('landing')} onSignup={() => setPage('signup')} />}
+      {page === 'login' && <Login onAuth={handleAuth} onEmailLogin={handleEmailLogin} onForgotPassword={handleForgotPassword} onBack={() => setPage('landing')} onSignup={() => setPage('signup')} />}
       {page === 'signup' && <Signup onAuth={handleAuth} onEmailSignup={handleEmailSignup} onBack={() => setPage('landing')} onLogin={() => setPage('login')} />}
+      {page === 'reset-password' && <ResetPassword onSetNewPassword={handleSetNewPassword} onDone={() => setPage('login')} />}
     </>
   );
 }

@@ -207,6 +207,14 @@ body {
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 @keyframes popIn { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }
 @keyframes slideInRight { from{transform:translateX(30px);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+.marquee-track { animation: marquee 28s linear infinite; }
+.marquee-track:hover { animation-play-state: paused; }
+
+@media (min-width: 800px) {
+  .hero-grid { grid-template-columns: 1.1fr 0.9fr !important; }
+}
 
 /* Responsive content shell */
 .content-shell { max-width: 600px; margin: 0 auto; padding: 20px 16px; }

@@ -13,6 +13,10 @@ export interface UserRecord {
 }
 
 const MARKUP = 2.5;
+// Boost/SMM pricing needs its own (lower) markup — that market is heavily
+// price-compared, unlike numbers/logs. Tune this single number if prices
+// still feel off once you see real live rates in the Select Service list.
+const BOOST_MARKUP = 1.25;
 const USD_TO_NGN = 1600;
 
 export function calcPrice(usdCost: number): number {
@@ -23,7 +27,7 @@ export function calcPrice(usdCost: number): number {
 // followers/likes/views), unlike 5sim's per-item pricing above.
 export function calcBoostPrice(usdRatePer1000: number, quantity: number): number {
   const usdCost = (usdRatePer1000 / 1000) * quantity;
-  return Math.ceil((usdCost * USD_TO_NGN * MARKUP) / 10) * 10;
+  return Math.ceil((usdCost * USD_TO_NGN * BOOST_MARKUP) / 10) * 10;
 }
 
 function env(key: string): string {
