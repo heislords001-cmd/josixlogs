@@ -101,6 +101,20 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
   // Store state
   const [allServices, setAllServices] = useState<Service[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+
+  // Boost (SMM panel) state
+  interface BoostService {
+    id: string; provider: string; providerServiceId: number; name: string;
+    category: string; ratePerThousandNGN: number; min: number; max: number;
+  }
+  const [boostServices, setBoostServices] = useState<BoostService[]>([]);
+  const [boostCatalogLoading, setBoostCatalogLoading] = useState(true);
+  const [boostSearch, setBoostSearch] = useState('');
+  const [selectedBoostService, setSelectedBoostService] = useState<BoostService | null>(null);
+  const [boostLink, setBoostLink] = useState('');
+  const [boostQuantity, setBoostQuantity] = useState('');
+  const [boostSubmitting, setBoostSubmitting] = useState(false);
+  const [boostSuccess, setBoostSuccess] = useState<{ orderId: number; price: number } | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [countryPrices, setCountryPrices] = useState<{ country: string; countryCode: string; price: number; available: number }[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
@@ -232,6 +246,66 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
       selectService(allServices[0]);
     }
   }, [tab, allServices]);
+
+  // Boost catalog loads lazily on first visit to the tab rather than on
+  // mount — it's two extra provider round-trips nobody needs until they
+  // actually open Boost.
+  useEffect(() => {
+    if (tab !== 'boost' || boostServices.length > 0 || !boostCatalogLoading) return;
+    const loadBoostCatalog = async () => {
+      try {
+        const res = await api.get<{ services: BoostService[] }>('/api/boost/catalog');
+        setBoostServices(res.data.services || []);
+      } catch {
+        showToast('Failed to load boost services', 'error');
+      } finally {
+        setBoostCatalogLoading(false);
+      }
+    };
+    loadBoostCatalog();
+  }, [tab]);
+
+  const filteredBoostServices = boostServices.filter(s =>
+    s.name.toLowerCase().includes(boostSearch.toLowerCase()) ||
+    s.category.toLowerCase().includes(boostSearch.toLowerCase())
+  );
+
+  const boostQuantityNum = Number(boostQuantity) || 0;
+  const boostEstimatedPrice = selectedBoostService && boostQuantityNum > 0
+    ? Math.ceil((selectedBoostService.ratePerThousandNGN / 1000) * boostQuantityNum / 10) * 10
+    : 0;
+
+  const submitBoostOrder = async () => {
+    if (!selectedBoostService || !boostLink.trim() || boostQuantityNum <= 0) {
+      showToast('Fill in the link and quantity first', 'error');
+      return;
+    }
+    if (boostQuantityNum < selectedBoostService.min || boostQuantityNum > selectedBoostService.max) {
+      showToast(`Quantity must be between ${selectedBoostService.min} and ${selectedBoostService.max}`, 'error');
+      return;
+    }
+    if (!profile || profile.balance < boostEstimatedPrice) {
+      setFundOpen(true);
+      showToast('Insufficient balance. Fund your wallet first.', 'error');
+      return;
+    }
+    setBoostSubmitting(true);
+    try {
+      const res = await api.post<{ orderId: number; price: number }>('/api/boost/order', {
+        id: selectedBoostService.id,
+        link: boostLink.trim(),
+        quantity: boostQuantityNum,
+      });
+      setBoostSuccess({ orderId: res.data.orderId, price: res.data.price });
+      await loadData();
+      showToast('Boost order placed!', 'success');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      showToast(err?.response?.data?.error || 'Order failed.', 'error');
+    } finally {
+      setBoostSubmitting(false);
+    }
+  };
 
   const selectedCountry = countryPrices.find(c => c.countryCode === selectedCountryCode) ?? null;
   const [platformSearch, setPlatformSearch] = useState('');
@@ -705,49 +779,101 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
         {/* BOOST */}
         {tab === 'boost' && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={sectionTitle}>Boost</div>
-              <div style={{ fontSize: 13, color: 'var(--muted2)' }}>Grow your social media instantly</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <div style={sectionTitle}>Boost</div>
+                <div style={{ fontSize: 13, color: 'var(--muted2)' }}>Grow your social media instantly</div>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--muted2)' }}>Bal: <strong style={{ color: 'var(--accent)' }}>₦{bal.toLocaleString()}</strong></div>
             </div>
 
-            {/* Coming soon / API not connected */}
-            <div style={{ background: 'linear-gradient(135deg,#161208,#0F0E12)', border: '1px solid var(--accent-a20)', borderRadius: 16, padding: '28px 20px', marginBottom: 16, textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Boosting Coming Soon</div>
-              <div style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.6 }}>SMM panel integration is being set up. Check back soon.</div>
-            </div>
+            {boostSuccess ? (
+              <div style={{ background: 'linear-gradient(135deg,#161208,#0F0E12)', border: '1px solid var(--accent-a35)', borderRadius: 16, padding: '28px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🚀</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Order Placed</div>
+                <div style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.6, marginBottom: 6 }}>Order #{boostSuccess.orderId} — ₦{boostSuccess.price.toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>Delivery starts shortly. Check My Orders for status.</div>
+                <button className="btn btn-primary btn-full" onClick={() => { setBoostSuccess(null); setSelectedBoostService(null); setBoostLink(''); setBoostQuantity(''); }}>Boost Something Else</button>
+              </div>
+            ) : selectedBoostService ? (
+              <div style={{ ...card, padding: '18px 16px' }}>
+                <button onClick={() => setSelectedBoostService(null)} style={{ background: 'none', border: 'none', color: 'var(--muted2)', cursor: 'pointer', fontSize: 13, marginBottom: 14, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>← Choose a different service</button>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{selectedBoostService.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: 16 }}>{selectedBoostService.category} · Min {selectedBoostService.min.toLocaleString()} · Max {selectedBoostService.max.toLocaleString()}</div>
 
-            {/* Service categories preview */}
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Available Services</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { platform: 'Instagram', icon: 'instagram.com', services: ['Followers', 'Likes', 'Views', 'Comments'] },
-                { platform: 'TikTok', icon: 'tiktok.com', services: ['Followers', 'Likes', 'Views'] },
-                { platform: 'Twitter / X', icon: 'x.com', services: ['Followers', 'Likes', 'Retweets'] },
-                { platform: 'YouTube', icon: 'youtube.com', services: ['Subscribers', 'Views', 'Likes'] },
-                { platform: 'Facebook', icon: 'facebook.com', services: ['Page Likes', 'Followers', 'Post Likes'] },
-                { platform: 'Telegram', icon: 'telegram.org', services: ['Members', 'Views', 'Reactions'] },
-                { platform: 'Spotify', icon: 'spotify.com', services: ['Streams', 'Followers', 'Plays'] },
-                { platform: 'Snapchat', icon: 'snapchat.com', services: ['Followers', 'Views'] },
-              ].map(item => (
-                <div key={item.platform} style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <img src={`https://www.google.com/s2/favicons?domain=${item.icon}&sz=64`} alt={item.platform}
-                      style={{ width: 28, height: 28, objectFit: 'contain' }}
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Link</label>
+                  <input
+                    value={boostLink}
+                    onChange={e => setBoostLink(e.target.value)}
+                    placeholder="https://instagram.com/yourprofile"
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '12px 14px', fontFamily: 'var(--font)', fontSize: 14, color: 'var(--text)', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Quantity</label>
+                  <input
+                    value={boostQuantity}
+                    onChange={e => setBoostQuantity(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder={`${selectedBoostService.min} - ${selectedBoostService.max}`}
+                    inputMode="numeric"
+                    style={{ width: '100%', background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '12px 14px', fontFamily: 'var(--font)', fontSize: 14, color: 'var(--text)', outline: 'none' }}
+                  />
+                </div>
+
+                {boostEstimatedPrice > 0 && (
+                  <div style={{ background: 'var(--accent-a06)', border: '1px solid var(--accent-a12)', borderRadius: 10, padding: '12px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted2)' }}>Estimated cost</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: 'var(--accent)' }}>₦{boostEstimatedPrice.toLocaleString()}</span>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item.platform}</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {item.services.map(s => (
-                        <span key={s} style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted2)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 4 }}>{s}</span>
-                      ))}
+                )}
+
+                <button className="btn btn-primary btn-full" onClick={submitBoostOrder} disabled={boostSubmitting}>
+                  {boostSubmitting ? <><Spinner size={16} color="#000" /> Placing order...</> : 'Boost Now'}
+                </button>
+              </div>
+            ) : boostCatalogLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--muted2)', fontSize: 14 }}>
+                <Spinner size={16} /> Loading boost services...
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Select Service ({boostServices.length} available)</div>
+                <div style={{ ...card, marginBottom: 20 }}>
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 9, padding: '8px 10px' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+                      <input
+                        value={boostSearch}
+                        onChange={e => setBoostSearch(e.target.value)}
+                        placeholder="Search platform or category..."
+                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font)' }}
+                      />
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--mono)', flexShrink: 0 }}>Soon</div>
+                  <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    {boostServices.length === 0 && (
+                      <div style={{ padding: '18px 16px', textAlign: 'center', color: 'var(--muted2)', fontSize: 13 }}>Boost isn't configured yet — check back soon.</div>
+                    )}
+                    {boostServices.length > 0 && filteredBoostServices.length === 0 && (
+                      <div style={{ padding: '18px 16px', textAlign: 'center', color: 'var(--muted2)', fontSize: 13 }}>No services match "{boostSearch}"</div>
+                    )}
+                    {filteredBoostServices.slice(0, 200).map((s, i) => (
+                      <div key={s.id} onClick={() => setSelectedBoostService(s)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i === filteredBoostServices.length - 1 ? 'none' : '1px solid var(--border)', cursor: 'pointer' }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted2)' }}>{s.category}</div>
+                        </div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--accent)', flexShrink: 0 }}>₦{s.ratePerThousandNGN.toLocaleString()}/1k</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         )}
 

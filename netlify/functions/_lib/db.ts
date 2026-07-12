@@ -19,6 +19,13 @@ export function calcPrice(usdCost: number): number {
   return Math.ceil((usdCost * USD_TO_NGN * MARKUP) / 50) * 50;
 }
 
+// SMM panel rates are quoted per 1000 units (the industry-standard unit for
+// followers/likes/views), unlike 5sim's per-item pricing above.
+export function calcBoostPrice(usdRatePer1000: number, quantity: number): number {
+  const usdCost = (usdRatePer1000 / 1000) * quantity;
+  return Math.ceil((usdCost * USD_TO_NGN * MARKUP) / 10) * 10;
+}
+
 function env(key: string): string {
   return (typeof Netlify !== 'undefined' ? Netlify.env.get(key) : process.env[key]) ?? '';
 }
