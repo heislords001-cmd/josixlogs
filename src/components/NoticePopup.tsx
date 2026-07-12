@@ -15,8 +15,8 @@ export default function NoticePopup() {
   useEffect(() => {
     const check = async () => {
       try {
-        const res = await api.get<{ notice: Notice | null }>('/api/notices');
-        const n = res.data.notice;
+        const res = await api.get<{ latest: Notice | null }>('/api/notices');
+        const n = res.data.latest;
         if (n) {
           const dismissedId = sessionStorage.getItem('dismissed_notice');
           if (dismissedId === n.id) return;

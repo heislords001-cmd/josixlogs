@@ -86,16 +86,16 @@ export default function Admin({ user, onBack }: AdminProps) {
   const [noticeMsg, setNoticeMsg] = useState('');
   const [noticeDuration, setNoticeDuration] = useState('60');
   const [sendingNotice, setSendingNotice] = useState(false);
-  const [activeNotice, setActiveNotice] = useState<{ id: string; message: string; expiresAt: string } | null>(null);
-  const [clearingNotice, setClearingNotice] = useState(false);
+  const [activeNotices, setActiveNotices] = useState<{ id: string; message: string; expiresAt: string; createdAt: string }[]>([]);
+  const [deletingNoticeId, setDeletingNoticeId] = useState<string | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' | '' = '') =>
     setToast({ msg, type });
 
-  const loadActiveNotice = useCallback(async () => {
+  const loadActiveNotices = useCallback(async () => {
     try {
-      const res = await api.get('/api/notices');
-      setActiveNotice(res.data.notice || null);
+      const res = await api.get('/api/admin/notices');
+      setActiveNotices(res.data.notices || []);
     } catch { /* ignore */ }
   }, []);
 
@@ -111,7 +111,7 @@ export default function Admin({ user, onBack }: AdminProps) {
     }
   }, []);
 
-  useEffect(() => { loadLogs(); loadActiveNotice(); }, [loadLogs, loadActiveNotice]);
+  useEffect(() => { loadLogs(); loadActiveNotices(); }, [loadLogs, loadActiveNotices]);
 
   const uploadLog = async () => {
     if (!platform || !price || !credentials || !label) {
@@ -415,29 +415,42 @@ export default function Admin({ user, onBack }: AdminProps) {
         {tab === 'notices' && (
           <div style={{ animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Active notice */}
+            {/* Active notices — multiple can run at once now. Only the most
+                recently sent one pops up as a toast for users; all of them
+                sit in the bell panel. */}
             <div style={{ ...card, padding: '18px 18px' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: 1 }}>Active Notice</div>
-              {activeNotice ? (
-                <div>
-                  <div style={{ background: 'rgba(245,197,24,0.08)', border: '1px solid rgba(245,197,24,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-                    <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 6 }}>{activeNotice.message}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>Expires: {new Date(activeNotice.expiresAt).toLocaleString()}</div>
-                  </div>
-                  <button className="btn btn-danger btn-sm" disabled={clearingNotice} onClick={async () => {
-                    setClearingNotice(true);
-                    try {
-                      await api.delete('/api/admin/notices');
-                      setActiveNotice(null);
-                      showToast('Notice cleared', 'success');
-                    } catch (e) { showToast((e as Error)?.message || 'Failed to clear', 'error'); }
-                    finally { setClearingNotice(false); }
-                  }}>
-                    {clearingNotice ? 'Clearing...' : '🗑 Clear Notice'}
-                  </button>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: 'var(--muted2)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Active Notices {activeNotices.length > 0 && `(${activeNotices.length})`}
+              </div>
+              {activeNotices.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {activeNotices.map((n, i) => (
+                    <div key={n.id} style={{ background: 'rgba(245,197,24,0.08)', border: '1px solid rgba(245,197,24,0.2)', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                        <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{n.message}</div>
+                        {i === 0 && (
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.3, padding: '2px 7px', borderRadius: 100, background: 'var(--accent)', color: '#000', fontFamily: 'var(--mono)', flexShrink: 0 }}>POPUP</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>Expires: {new Date(n.expiresAt).toLocaleString()}</div>
+                        <button className="btn btn-danger btn-sm" disabled={deletingNoticeId === n.id} style={{ fontSize: 11, padding: '4px 10px' }} onClick={async () => {
+                          setDeletingNoticeId(n.id);
+                          try {
+                            await api.delete('/api/admin/notices', { id: n.id });
+                            showToast('Notice removed', 'success');
+                            await loadActiveNotices();
+                          } catch (e) { showToast((e as Error)?.message || 'Failed to remove', 'error'); }
+                          finally { setDeletingNoticeId(null); }
+                        }}>
+                          {deletingNoticeId === n.id ? 'Removing...' : '🗑 Remove'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>No active notice</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>No active notices</div>
               )}
             </div>
 
@@ -464,6 +477,7 @@ export default function Admin({ user, onBack }: AdminProps) {
                   <option value="1440">24 hours</option>
                   <option value="4320">3 days</option>
                   <option value="10080">1 week</option>
+                  <option value="43200">1 month</option>
                 </select>
               </div>
 
@@ -473,7 +487,7 @@ export default function Admin({ user, onBack }: AdminProps) {
                   await api.post('/api/admin/notices', { message: noticeMsg.trim(), duration: Number(noticeDuration) });
                   showToast('Notice sent!', 'success');
                   setNoticeMsg('');
-                  await loadActiveNotice();
+                  await loadActiveNotices();
                 } catch (e) { showToast((e as Error)?.message || 'Failed to send notice', 'error'); }
                 finally { setSendingNotice(false); }
               }}>

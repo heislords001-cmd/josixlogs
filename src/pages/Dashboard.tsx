@@ -58,7 +58,7 @@ const LOGO_DOMAINS: Record<string, string> = {
 export default function Dashboard({ user, onSignOut }: DashboardProps) {
   const [tab, setTab] = useState<Tab>('home');
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [notice, setNotice] = useState<{ id: string; message: string; expiresAt: string } | null>(null);
+  const [notices, setNotices] = useState<{ id: string; message: string; expiresAt: string }[]>([]);
   const [noticePanelOpen, setNoticePanelOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('jx-theme');
@@ -151,14 +151,14 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const checkNotice = async () => {
+    const checkNotices = async () => {
       try {
-        const res = await api.get<{ notice: { id: string; message: string; expiresAt: string } | null }>('/api/notices');
-        setNotice(res.data.notice);
+        const res = await api.get<{ all: { id: string; message: string; expiresAt: string }[] }>('/api/notices');
+        setNotices(res.data.all || []);
       } catch { /* ignore */ }
     };
-    checkNotice();
-    const interval = setInterval(checkNotice, 60000);
+    checkNotices();
+    const interval = setInterval(checkNotices, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -391,17 +391,23 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               style={{ position: 'relative', background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, transition: 'all 0.15s' }}
             >
               🔔
-              {notice && (
+              {notices.length > 0 && (
                 <div style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', animation: 'popIn 0.3s ease' }} />
               )}
             </button>
             {noticePanelOpen && (
               <>
                 <div onClick={() => setNoticePanelOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
-                <div style={{ position: 'absolute', top: 42, right: 0, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 12, minWidth: 260, maxWidth: 320, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', padding: 14 }}>
+                <div style={{ position: 'absolute', top: 42, right: 0, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 12, minWidth: 280, maxWidth: 340, maxHeight: 360, overflowY: 'auto', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', padding: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>Notifications</div>
-                  {notice ? (
-                    <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{notice.message}</div>
+                  {notices.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {notices.map(n => (
+                        <div key={n.id} style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+                          {n.message}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div style={{ fontSize: 13, color: 'var(--muted2)', fontStyle: 'italic' }}>Nothing new right now.</div>
                   )}

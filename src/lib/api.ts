@@ -50,5 +50,5 @@ export const api = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   put: <T = any>(url: string, body?: unknown) => request<T>('PUT', url, body),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  delete: <T = any>(url: string) => request<T>('DELETE', url),
+  delete: <T = any>(url: string, body?: unknown) => request<T>('DELETE', url, body),
 };
