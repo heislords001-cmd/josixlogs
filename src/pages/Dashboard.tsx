@@ -7,8 +7,9 @@ import Spinner from '../components/Spinner';
 import Toast from '../components/Toast';
 import Modal from '../components/Modal';
 import SupportChat from '../components/SupportChat';
+import ContactForm from '../components/ContactForm';
 
-type Tab = 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support';
+type Tab = 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support' | 'contact';
 
 interface DashboardProps {
   user: AuthUser;
@@ -28,7 +29,7 @@ function Badge({ children, color = 'var(--accent)' }: { children: React.ReactNod
   );
 }
 
-function NavIcon({ id }: { id: 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support' }) {
+function NavIcon({ id }: { id: 'home' | 'store' | 'logs' | 'boost' | 'orders' | 'wallet' | 'profile' | 'support' | 'contact' }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (id) {
     case 'home':
@@ -500,7 +501,7 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
               {[
                 { label: 'Virtual Numbers', sub: 'Buy SMS numbers', tab: 'store' as Tab, icon: '📱' },
                 { label: 'Logs', sub: 'Social accounts', tab: 'logs' as Tab, icon: '📁' },
-                { label: 'Customer Service', sub: 'Get help fast', tab: 'support' as Tab, icon: '💬' },
+                { label: 'Customer Service', sub: 'Report an issue', tab: 'contact' as Tab, icon: '📮' },
               ].map(item => (
                 <div key={item.label} onClick={() => setTab(item.tab)}
                   style={{ ...card, padding: '16px 14px', cursor: 'pointer', transition: 'all 0.15s' }}
@@ -1013,6 +1014,19 @@ export default function Dashboard({ user, onSignOut }: DashboardProps) {
             <div style={sectionTitle}>Customer Service</div>
             <div style={{ ...card, padding: '14px 16px' }}>
               <SupportChat />
+            </div>
+          </div>
+        )}
+
+        {/* CONTACT (report a problem / request, plus FAQ) */}
+        {tab === 'contact' && (
+          <div style={{ animation: 'fadeIn 0.2s ease' }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={sectionTitle}>Contact Us</div>
+              <div style={{ fontSize: 13, color: 'var(--muted2)' }}>We're here to help</div>
+            </div>
+            <div style={{ ...card, padding: '18px 16px' }}>
+              <ContactForm />
             </div>
           </div>
         )}

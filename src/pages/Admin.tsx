@@ -72,7 +72,7 @@ export default function Admin({ user, onBack }: AdminProps) {
   const [deleteTarget, setDeleteTarget] = useState<AdminLog | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [tab, setTab] = useState<'logs' | 'upload' | 'notices'>('logs');
+  const [tab, setTab] = useState<'logs' | 'upload' | 'notices' | 'tickets'>('logs');
 
   // Form state
   const [platform, setPlatform] = useState(PLATFORMS[0]);
@@ -98,6 +98,37 @@ export default function Admin({ user, onBack }: AdminProps) {
       setActiveNotices(res.data.notices || []);
     } catch { /* ignore */ }
   }, []);
+
+  interface Ticket { id: string; userEmail: string; topic: string; subject: string; message: string; status: string; createdAt: string; }
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
+
+  const loadTickets = useCallback(async () => {
+    setTicketsLoading(true);
+    try {
+      const res = await api.get('/api/admin/tickets');
+      setTickets(res.data.tickets || []);
+    } catch {
+      showToast('Failed to load tickets', 'error');
+    } finally {
+      setTicketsLoading(false);
+    }
+  }, []);
+
+  const resolveTicket = async (id: string, status: 'open' | 'resolved') => {
+    setUpdatingTicketId(id);
+    try {
+      await api.post('/api/admin/tickets', { id, status });
+      await loadTickets();
+    } catch {
+      showToast('Failed to update ticket', 'error');
+    } finally {
+      setUpdatingTicketId(null);
+    }
+  };
+
+  useEffect(() => { if (tab === 'tickets') loadTickets(); }, [tab, loadTickets]);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -269,7 +300,7 @@ export default function Admin({ user, onBack }: AdminProps) {
 
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 4 }}>
-          {(['logs', 'upload', 'notices'] as const).map(t => (
+          {(['logs', 'upload', 'notices', 'tickets'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
@@ -279,7 +310,7 @@ export default function Admin({ user, onBack }: AdminProps) {
                 transition: 'all 0.15s',
                 textTransform: 'uppercase', letterSpacing: 1,
               }}>
-              {t === 'logs' ? '📁 Logs' : t === 'upload' ? '➕ Upload' : '📢 Notices'}
+              {t === 'logs' ? '📁 Logs' : t === 'upload' ? '➕ Upload' : t === 'notices' ? '📢 Notices' : '🎫 Tickets'}
             </button>
           ))}
         </div>
@@ -494,6 +525,51 @@ export default function Admin({ user, onBack }: AdminProps) {
                 {sendingNotice ? 'Sending...' : '📢 Send Notice'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* TICKETS PANEL */}
+        {tab === 'tickets' && (
+          <div style={{ animation: 'fadeIn 0.2s ease' }}>
+            {ticketsLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 12, color: 'var(--muted2)', flexDirection: 'column' }}>
+                <Spinner />
+                <span style={{ fontSize: 13 }}>Loading reports...</span>
+              </div>
+            ) : tickets.length === 0 ? (
+              <div style={{ ...card, padding: '48px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--muted2)' }}>No reports yet</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {tickets.map(t => (
+                  <div key={t.id} style={{ ...card, padding: '14px 16px', opacity: t.status === 'resolved' ? 0.55 : 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700 }}>{t.subject}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--accent)', fontFamily: 'var(--mono)' }}>{t.topic}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 2 }}>{t.userEmail} · {new Date(t.createdAt).toLocaleString()}</div>
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.3, padding: '2px 8px', borderRadius: 100, flexShrink: 0, background: t.status === 'resolved' ? 'rgba(52,211,153,0.1)' : 'rgba(245,197,24,0.1)', color: t.status === 'resolved' ? 'var(--green)' : 'var(--accent)' }}>
+                        {t.status === 'resolved' ? 'RESOLVED' : 'OPEN'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--muted2)', lineHeight: 1.6, marginBottom: 10, whiteSpace: 'pre-wrap' }}>{t.message}</div>
+                    <button
+                      className={t.status === 'resolved' ? 'btn btn-ghost btn-sm' : 'btn btn-primary btn-sm'}
+                      disabled={updatingTicketId === t.id}
+                      onClick={() => resolveTicket(t.id, t.status === 'resolved' ? 'open' : 'resolved')}
+                      style={{ fontSize: 12 }}
+                    >
+                      {updatingTicketId === t.id ? 'Updating...' : t.status === 'resolved' ? 'Reopen' : 'Mark Resolved'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
